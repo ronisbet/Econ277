@@ -10,7 +10,7 @@
 # Set Directories
 ##############################
 # Set working Directory 
-setwd("~/Econ277")
+setwd("~/Desktop/Econ277")
 # Raw Data Directory 
 rawdata_dir<-"~/Econ277/RawData"
 # Raw Data Directory 
@@ -25,17 +25,17 @@ library(readr)
 # Load Data - Dataset #1.1
 ##############################
 # Read CSV Data
-data1 <- read.csv("RawData/Dataset_1.1.csv")
+data1 <- read.csv("~/Desktop/Econ277/Data/PSET1/Dataset_1.1.csv")
 ##############################
 # Load Data - Dataset #1.2
 ##############################
 # Read CSV Data
-data2 <- read.csv("RawData/Dataset_1.2.csv")
+data2 <- read.csv("~/Desktop/Econ277/Data/PSET1/Dataset_1.2.csv")
 ##############################
 # Load Data - CountyRRData
 ##############################
 # Read CSV Data
-DataRR <- read.csv("RawData/CountyRRData.csv")
+DataRR <- read.csv("~/Desktop/Econ277/Data/PSET1/CountyRRData.csv")
 #############################
 
 # Part 1: Dataset Construction
@@ -60,12 +60,11 @@ countydata <-merge(data3, DataRR, by="FIPS")
 ##############################
 # Create dummy variable for railroad implementation
 ##############################
-countydata[ , "Rimplem"] <- ifelse(
+countydata$RR_Dummy = ifelse(
   (countydata[ ,"RRinitialtotaldist"] == 0 ) ,
   0 ,
   1) 
 # Where NO = 0 and YES = 1 
-# "Rimplem" is shorthand for "Railroad Implementation"
 ###############################
 # Create a subset of the data for obs. after 1930
 ###############################
@@ -113,22 +112,26 @@ sapply(Countydata_P1930, sd)
 #############################
 # Create Subsets of data for RR implementation
 #############################
+Countydata_P1930$LNadjfarmval = log(Countydata_P1930$adjfarmval) # create new collum for log of adjusted farm values
 
-Countydata_P1930_NORR <- subset(Countydata_P1930, Rimplem == 0)
-Countydata_P1930_YESRR <- subset(Countydata_P1930, Rimplem == 1)
+Countydata_P1930_NORR <- subset(Countydata_P1930, RR_Dummy == 0)
+Countydata_P1930_YESRR <- subset(Countydata_P1930, RR_Dummy == 1)
 #############################
 # 3.1. Create a scatterplot with a local polynomial line for the ever RR group.
 #############################
 
-p1 <- ggplot(data = Countydata_P1930_YESRR, mapping = aes(x = YEAR, y = log(adjfarmval))) + geom_point() + geom_smooth()
+install.packages("ggplot2")
+
+p1 <- ggplot(data = Countydata_P1930_YESRR, mapping = aes(x = YEAR, y = LNadjfarmval)) + geom_point() + geom_smooth()
+p1
 #############################
 
 # 3.2. Create a scatterplot with a local polynomial line for the never RR group.
 
 #############################
 
-p2 <- ggplot(data = Countydata_P1930_NORR, mapping = aes(x = YEAR, y = log(adjfarmval))) + geom_point() + geom_smooth()
-
+p2 <- ggplot(data = Countydata_P1930_NORR, mapping = aes(x = YEAR, y = LNadjfarmval)) + geom_point() + geom_smooth()
+p2
 #############################
 
 # 3.3. Create a scatterplot with the entire dataset in one graph. This should have the points
@@ -136,15 +139,17 @@ p2 <- ggplot(data = Countydata_P1930_NORR, mapping = aes(x = YEAR, y = log(adjfa
 # This is so we can start to see how different the two areas are.
 
 #############################
-Countydata_P1930$Rimplem <- as.factor(Countydata_P1930$Rimplem) # convert RR dummy to factor variable
+Countydata_P1930$Railraod_Implementation <- as.factor(Countydata_P1930$RR_Dummy) # convert RR dummy to factor variable
 head(Countydata_P1930)
 
-p3 <- ggplot(data=Countydata_P1930, aes(x=YEAR, y=LNadjfarmval, color=Rimplem, shape=Rimplem)) +
+p3 <- ggplot(data=Countydata_P1930, aes(x=YEAR, y=LNadjfarmval, color=Railraod_Implementation, shape=Railraod_Implementation)) +
   geom_point() + 
   geom_smooth()+
   scale_shape_manual(values=c(3, 16, 17))+ 
   scale_color_manual(values=c('#999999','#E69F00', '#56B4E9'))+
   theme(legend.position="top")
+
+p3
 
 # Part 4: Basic Difference – in – Difference (DID) Models
 
@@ -154,7 +159,7 @@ p3 <- ggplot(data=Countydata_P1930, aes(x=YEAR, y=LNadjfarmval, color=Rimplem, s
 
 #############################
 
-Countydata_P1930[ , "1885 Marker"] <- ifelse(
+Countydata_P1930[ , "1885_Marker"] <- ifelse(
   (Countydata_P1930[ ,"YEAR"] > 1885 ) ,
   1 ,
   0) 
@@ -169,23 +174,23 @@ Countydata_P1930[ , "1885 Marker"] <- ifelse(
 
 #############################
 
-# ******Center time period and RR implementation variables******?
+# Define Variables
 #############################
 
-RRc <- Countydata_P1930$Rimplem - mean(Countydata_P1930$Rimplem)
-TPc <- Countydata_P1930$`1885 Marker` - mean(Countydata_P1930$`1885 Marker`)
+RR <- Countydata_P1930$RR_Dummy
+TP <- Countydata_P1930$'1885_Marker'
 
 #############################
 # Create Interaction Variable
 #############################
-Countydata_P1930$RRxTP <- RRc * TPc
+Countydata_P1930$RRxTP <- RR * TP
 #############################
 
 # 4.3 Run a standard DID model using adjusted farm values as the outcome
 
 #############################
 
-DID_1 = lm(adjfarmval ~ Rimplem + `1885 Marker` + RRxTP, data = Countydata_P1930)
+DID_1 = lm(adjfarmval ~ RR_Dummy + `1885_Marker` + RRxTP, data = Countydata_P1930)
 summary(DID_1)
 
 #############################
@@ -196,17 +201,17 @@ summary(DID_1)
 
 Countydata_P1930$LNadjfarmval = log(Countydata_P1930$adjfarmval) # create new output collum for LN 
 
-DID_2 = lm(LNadjfarmval ~ Rimplem + `1885 Marker` + RRxTP, data = Countydata_P1930)
+DID_2 = lm(LNadjfarmval ~ RR_Dummy + `1885_Marker` + RRxTP, data = Countydata_P1930)
 summary(DID_2)
 
 #############################
 
 # Question 8: Interpret the four coefficients of interest in this regression.
 
-# Answer 8: The four coeficients are: the intercept, The rail road implementation dummy (Rimplem), the time period dummy (1885 Marker), and the interaction coeficient (RRxTP).
-# The intercept of 2.93 extimates 2.93 units of the natural log of farm productivity in the absense of railroads and prior to 1850 (significant at less than 1%). The "Rimplem" coefiencient of 0.60 estimates a gain of 0.60 unites of the natural log of farm productivity when railroads are implemented prior to 1850 (significant at less than 1%)
-# The "1885 Marker" coeficient of 0.81 extimates a gain of 0.81 unites of the natural log of farm productivity after 1885 between 1850 and 1930 (significant at less than 1%).
-# The RRxTP coeficient estimates a gain of 0.221 unites of the natural log of farm productivity when railroads are implemented after 1885 (significant at less than 1%).
+# Answer 8: The four coeficients are: the intercept, The rail road implementation dummy (RR_Dummy), the time period dummy (1885_Marker), and the interaction coeficient (RRxTP).
+# The intercept of 3.06 extimates 3.06 units of the natural log of farm productivity in the absense of railroads and prior to 1850 (significant at less than 1%). The "RR_Dummy" coefiencient of 0.47 estimates a gain of 0.47 unites of the natural log of farm productivity when railroads are implemented prior to 1850 (significant at less than 1%)
+# The "1885_Marker" coeficient of 0.60 extimates a gain of 0.81 unites of the natural log of farm productivity after 1885 between 1850 and 1930 (significant at less than 1%).
+# The RRxTP coeficient estimates a gain of 0.22 unites of the natural log of farm productivity when railroads are implemented after 1885 (significant at less than 1%).
 
 # Question 9: Discuss the merits of this model. Do you think that this is a reasonable DID model based on the fundamental assumptions?
 
@@ -245,10 +250,15 @@ P4 <- ggplot(data = Countydata_P1930_YESRR, aes(x= RRinitialtotaldist, y= LNadjf
   geom_point()+
   geom_smooth() # origional RR distance measure
 
+P4
+
+Countydata_P1930_YESRR <- subset(Countydata_P1930, RR_Dummy == 1) # add "NEW RR" column to Railroad group
+
 P5 <- ggplot(data = Countydata_P1930_YESRR, aes(x= NewRR, y= LNadjfarmval)) + 
   geom_point()+
   geom_smooth() # New RR distance measure
 
+P5
 #############################
 
 # Question 10: Describe the patterns in the two figures above.
@@ -290,4 +300,18 @@ Reg_2 = lm(LNadjfarmval ~ NewRR , data = Countydata_P1930)
 
 summary(Reg_2)
 
-#############################
+############################
+
+# Question 11: Interpret the coefficients of interest from both models.
+
+# Answer 11: In model 1, an intercept of 3.74 estimates 3.74 units of the natural log of farm productivity in the absense of railroad implementation (significant at less than 1%).
+  # A coeficient of 2.62e-03 for initial railroad distance (RRinitialtotaldist) estimates a gain of 2.62e-03 in the natural log of farm productivity with each km increace in railroad for a county (significant at less than 1%).
+  # In model 2, an intercept of 3.10 estimates 3.10 units of the natural log of farm productivity in the absense of railroad implementation (significant at less than 1%).
+  # A coeficient of 0.21 for our new rail road measure (NewRR) estimates a gain of 0.21 in the natural log of farm productivity with each unit incease in the new railroad measure  (significant at less than 1%).
+
+# Question 12: Discuss the type of endogeneity concerns you would have regarding these models.
+
+# Answer 12: Becasue farm productivity relies on a variety of factors outside of railroads, and railroad development and implementation have its own exogenious promoters, there are certinly some exogeneity concerns with this model.
+  # First, railway development is more likely in areas that are well inhabited and popular. It is reasonable to assume that these polular areas may have more suiltible land for farming, and therefore will see higher levels of farm productivity.
+  # Our model, would atribute this productivity gain to railroad implementation, were the gain should actually be atributed to more suitable land. Additionaly, railways being tourists and more citizens, opening up local markets, this will raise the value the county land.
+
